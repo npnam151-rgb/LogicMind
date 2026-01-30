@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { ShikakuClue, ShikakuRect } from '../types';
 
@@ -35,9 +36,21 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
 
   const cellSize = 'min(9vw, 36px)';
   
-  const handlePointerDown = (r: number, c: number, e: React.PointerEvent) => {
+  // Mobile-friendly drag start logic using DOM element detection
+  const handlePointerDown = (e: React.PointerEvent) => {
     e.preventDefault(); 
     
+    // Find the cell under the pointer/finger
+    const element = document.elementFromPoint(e.clientX, e.clientY);
+    const cellElement = element?.closest('[data-shikaku-cell="true"]');
+    
+    if (!cellElement) return;
+
+    const r = parseInt(cellElement.getAttribute('data-r') || '-1');
+    const c = parseInt(cellElement.getAttribute('data-c') || '-1');
+
+    if (r === -1 || c === -1) return;
+
     // Check if clicking an existing rect to remove it
     const clickedRect = rects.find(rect => 
         r >= rect.r && r < rect.r + rect.h && c >= rect.c && c < rect.c + rect.w
@@ -50,22 +63,40 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
 
     setDragStart({ r, c });
     setCurrentDrag({ r, c });
+
+    // Important for touch: Capture pointer to the board container so we keep receiving events
+    // even if the finger moves slightly outside initially
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
   };
 
-  const handlePointerEnter = (r: number, c: number) => {
-    if (dragStart) {
-        // Optimization: Use requestAnimationFrame to prevent lag on larger grids
-        if (rafRef.current) {
-            cancelAnimationFrame(rafRef.current);
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragStart) return;
+
+    // Optimization: Use requestAnimationFrame to prevent lag
+    if (rafRef.current) return;
+    
+    rafRef.current = requestAnimationFrame(() => {
+        // Look up element under cursor (works for both touch and mouse)
+        const element = document.elementFromPoint(e.clientX, e.clientY);
+        const cellElement = element?.closest('[data-shikaku-cell="true"]');
+
+        if (cellElement) {
+            const r = parseInt(cellElement.getAttribute('data-r') || '-1');
+            const c = parseInt(cellElement.getAttribute('data-c') || '-1');
+            
+            if (r !== -1 && c !== -1) {
+                setCurrentDrag({ r, c });
+            }
         }
-        rafRef.current = requestAnimationFrame(() => {
-            setCurrentDrag({ r, c });
-        });
-    }
+        rafRef.current = null;
+    });
   };
 
-  const handlePointerUp = () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+    }
 
     if (dragStart && currentDrag) {
       const r = Math.min(dragStart.r, currentDrag.r);
@@ -87,8 +118,10 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
           });
       }
     }
+    
     setDragStart(null);
     setCurrentDrag(null);
+    (e.currentTarget as Element).releasePointerCapture(e.pointerId);
   };
 
   const renderDragPreview = () => {
@@ -128,10 +161,6 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
               // Error: Area too big for the number
               statusClass = 'shikaku-ghost-error';
           }
-          // If area < target, keep neutral (still drawing)
-      } else {
-          // No clues inside yet, check if size is reasonable or keep neutral
-          // We keep neutral unless it's obviously invalid logic, but neutral is fine for 'searching'
       }
 
       return (
@@ -154,12 +183,14 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
   return (
     <div 
         className="flex justify-center items-center w-full select-none touch-none py-4"
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
     >
       <div 
         ref={boardRef}
-        className="relative bg-slate-800 border-2 border-slate-600 shadow-soft"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        className="relative bg-slate-800 border-2 border-slate-600 shadow-soft touch-none"
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${size}, ${cellSize})`,
@@ -175,8 +206,9 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
             return (
                 <div
                     key={i}
-                    onPointerDown={(e) => handlePointerDown(r, c, e)}
-                    onPointerEnter={() => handlePointerEnter(r, c)}
+                    data-shikaku-cell="true"
+                    data-r={r}
+                    data-c={c}
                     className="bg-slate-700 flex items-center justify-center cursor-pointer"
                     style={{ width: '100%', height: '100%' }}
                 >
