@@ -1325,8 +1325,13 @@ const App: React.FC = () => {
            </div>
         </div>
       )}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
-          {gameState.mode === 'HOME' ? (
+      
+      {/* 
+         LAYOUT REFACTOR: 
+         Split into two distinct branches for Home and Game to ensure proper scrolling and fixed positioning.
+      */}
+      {gameState.mode === 'HOME' ? (
+        <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
             <div className="p-6 pb-12 min-h-full flex flex-col relative" onClick={handleDashboardInteraction}>
                <header className="mb-6 mt-8 sticky top-0 z-10 py-3 glass-panel rounded-2xl mx-2 shadow-2xl backdrop-blur-xl flex justify-between items-center px-4">
                   <button onClick={(e) => { e.stopPropagation(); handleToggleMute(); }} className="p-2 text-slate-400 hover:text-white transition-colors glass-button rounded-full w-10 h-10 flex items-center justify-center">
@@ -1360,9 +1365,11 @@ const App: React.FC = () => {
                    </button>
                </div>
             </div>
-          ) : (
-            <div className="min-h-full flex flex-col">
-              <header className="sticky top-0 z-20 glass-panel border-b-0 border-b-white/5 px-4 py-4 flex items-center justify-between shadow-lg">
+        </div>
+      ) : (
+        <div className="flex flex-col h-full w-full overflow-hidden">
+             {/* FIXED HEADER */}
+             <header className="shrink-0 z-20 glass-panel border-b-0 border-b-white/5 px-4 py-4 flex items-center justify-between shadow-lg">
                  <button onClick={()=>setGameState(p=>({...p, mode:'HOME'}))} className="p-2 text-slate-300 hover:text-white glass-button rounded-xl"><Icons.Back/></button>
                  <div className="flex flex-col items-center">
                      <div className="flex items-center gap-2">{gameState.isDailyChallenge && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-bold uppercase tracking-wider">Daily</span>}<span className="text-[10px] font-bold text-indigo-300 uppercase tracking-[0.2em]">{gameState.mode}</span></div>
@@ -1374,8 +1381,10 @@ const App: React.FC = () => {
                      {!gameState.isDailyChallenge && <button onClick={handleReset} className="p-2 text-slate-300 glass-button rounded-xl hover:bg-red-500/20 hover:text-red-300 active:scale-95 transition-all"><Icons.Reset/></button>}
                      <button onClick={handleRevealHint} className="p-2 glass-button rounded-xl hover:bg-amber-500/20 hover:text-amber-300 text-amber-400"><Icons.Lightbulb/></button>
                  </div>
-              </header>
-              <main className="flex-1 flex flex-col items-center justify-start pt-6 px-4 pb-48">
+             </header>
+
+             {/* SCROLLABLE MAIN CONTENT */}
+             <main ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar w-full relative flex flex-col items-center justify-start pt-6 px-4 pb-6">
                  <div className="relative">
                      <div className="glass-panel p-1 rounded-2xl shadow-2xl border border-white/5">
                         {gameState.mode === 'BRIDGES' ? <BridgesBoard size={gameState.bridgesSize || 9} islands={gameState.bridgesIslands||[]} lines={gameState.bridgesLines||[]} onInteract={handleBridgesInteract} /> 
@@ -1388,15 +1397,16 @@ const App: React.FC = () => {
                          </button>
                      )}
                  </div>
-              </main>
-              {['SUDOKU', 'KAKURO', 'SKYSCRAPERS', 'FUTOSHIKI'].includes(gameState.mode) && (
-                  <div className="sticky bottom-0 w-full glass-panel border-t border-white/5 p-4 pb-8 safe-area-bottom z-30 flex justify-center backdrop-blur-xl shrink-0">
+             </main>
+
+             {/* FIXED FOOTER CONTROLS */}
+             {['SUDOKU', 'KAKURO', 'SKYSCRAPERS', 'FUTOSHIKI'].includes(gameState.mode) && (
+                  <div className="shrink-0 w-full glass-panel border-t border-white/5 p-4 pb-8 safe-area-bottom z-30 flex justify-center backdrop-blur-xl">
                       <Controls onNumberClick={handleNumberInput} onDelete={()=>handleNumberInput(-1)} gameMode={gameState.mode} maxNumber={gameState.mode === 'FUTOSHIKI' ? gameState.grid.length : 9} />
                   </div>
-              )}
-            </div>
-          )}
-      </div>
+             )}
+        </div>
+      )}
     </div>
   );
 };
