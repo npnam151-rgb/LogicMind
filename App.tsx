@@ -1375,7 +1375,7 @@ const App: React.FC = () => {
                      <button onClick={handleRevealHint} className="p-2 glass-button rounded-xl hover:bg-amber-500/20 hover:text-amber-300 text-amber-400"><Icons.Lightbulb/></button>
                  </div>
               </header>
-              <main className="flex-1 flex flex-col items-center justify-center p-4">
+              <main className="flex-1 flex flex-col items-center justify-start pt-6 px-4 pb-48">
                  <div className="relative">
                      <div className="glass-panel p-1 rounded-2xl shadow-2xl border border-white/5">
                         {gameState.mode === 'BRIDGES' ? <BridgesBoard size={gameState.bridgesSize || 9} islands={gameState.bridgesIslands||[]} lines={gameState.bridgesLines||[]} onInteract={handleBridgesInteract} /> 
@@ -1390,7 +1390,7 @@ const App: React.FC = () => {
                  </div>
               </main>
               {['SUDOKU', 'KAKURO', 'SKYSCRAPERS', 'FUTOSHIKI'].includes(gameState.mode) && (
-                  <div className="sticky bottom-0 w-full glass-panel border-t border-white/5 p-4 pb-8 safe-area-bottom z-30 flex justify-center backdrop-blur-xl">
+                  <div className="sticky bottom-0 w-full glass-panel border-t border-white/5 p-4 pb-8 safe-area-bottom z-30 flex justify-center backdrop-blur-xl shrink-0">
                       <Controls onNumberClick={handleNumberInput} onDelete={()=>handleNumberInput(-1)} gameMode={gameState.mode} maxNumber={gameState.mode === 'FUTOSHIKI' ? gameState.grid.length : 9} />
                   </div>
               )}
