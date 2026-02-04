@@ -61,7 +61,6 @@ export interface NurikabeCell { value: number; state: NurikabeCellState; isError
 export type NurikabeGrid = NurikabeCell[][];
 
 export interface NonogramClues { rows: number[][]; cols: number[][]; title?: string; }
-export interface HintResponse { text: string; relatedCells?: { r: number; c: number }[]; }
 
 export interface GameState {
   mode: GameMode;
