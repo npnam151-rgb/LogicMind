@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { BridgesIsland, BridgesLine } from '../types';
 
@@ -17,6 +18,7 @@ const BridgesBoard: React.FC<Props> = ({ size, islands, lines, onInteract }) => 
   const PADDING = 20;
   const ISLAND_RADIUS = 14;
   
+  // Calculate internal coordinate system dimensions
   const width = size * CELL_SIZE + PADDING * 2;
   const height = size * CELL_SIZE + PADDING * 2;
 
@@ -71,22 +73,33 @@ const BridgesBoard: React.FC<Props> = ({ size, islands, lines, onInteract }) => 
   };
 
   return (
-    <div className="flex justify-center items-center w-full select-none touch-none py-4 overflow-auto">
-      <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-soft">
+    <div className="flex justify-center items-center w-full select-none touch-none py-2">
+      <div 
+        className="bg-slate-800 border border-slate-700 rounded-xl shadow-soft overflow-hidden"
+        style={{
+            // Constrain container width to viewport (92% of screen width) or max 480px
+            // Aspect ratio ensures height adjusts automatically
+            width: 'min(92vw, 480px)',
+            aspectRatio: '1/1' 
+        }}
+      >
         <svg 
             ref={svgRef}
-            width={width} 
-            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            className="w-full h-full"
+            preserveAspectRatio="xMidYMid meet"
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             style={{ touchAction: 'none' }}
         >
+            {/* Grid Dots */}
             {Array.from({length: size}).map((_, r) => 
                 Array.from({length: size}).map((__, c) => (
                     <circle key={`dot-${r}-${c}`} cx={getCoord(c)} cy={getCoord(r)} r={1} fill="#475569" />
                 ))
             )}
 
+            {/* Bridges Lines */}
             {lines.map(line => {
                 const i1 = islands.find(i => i.id === line.fromId);
                 const i2 = islands.find(i => i.id === line.toId);
@@ -101,14 +114,14 @@ const BridgesBoard: React.FC<Props> = ({ size, islands, lines, onInteract }) => 
                     return <line key={line.id} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94a3b8" strokeWidth="3" />;
                 } else {
                     const offset = 3;
-                    if (Math.abs(x1 - x2) < 1) {
+                    if (Math.abs(x1 - x2) < 1) { // Vertical double bridge
                         return (
                             <g key={line.id}>
                                 <line x1={x1-offset} y1={y1} x2={x2-offset} y2={y2} stroke="#94a3b8" strokeWidth="3" />
                                 <line x1={x1+offset} y1={y1} x2={x2+offset} y2={y2} stroke="#94a3b8" strokeWidth="3" />
                             </g>
                         );
-                    } else {
+                    } else { // Horizontal double bridge
                         return (
                             <g key={line.id}>
                                 <line x1={x1} y1={y1-offset} x2={x2} y2={y2-offset} stroke="#94a3b8" strokeWidth="3" />
@@ -119,6 +132,7 @@ const BridgesBoard: React.FC<Props> = ({ size, islands, lines, onInteract }) => 
                 }
             })}
 
+            {/* Drag Preview Line */}
             {dragStart && dragCurrent && (
                 <line 
                     x1={getCoord(islands.find(i => i.id === dragStart)!.c)}
@@ -132,6 +146,7 @@ const BridgesBoard: React.FC<Props> = ({ size, islands, lines, onInteract }) => 
                 />
             )}
 
+            {/* Islands */}
             {islands.map(island => {
                 const x = getCoord(island.c);
                 const y = getCoord(island.r);

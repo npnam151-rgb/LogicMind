@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NonogramGrid, NonogramClues } from '../types';
 import { Icons } from '../constants';
@@ -13,7 +14,7 @@ const NonogramBoard: React.FC<Props> = ({ grid, clues, onCellClick }) => {
 
   const rows = grid.length;
   const cols = grid[0].length;
-  const isSmall = cols <= 5;
+  const isSmall = cols <= 6;
   const isLarge = cols > 12;
 
   let cellSize = 'min(8.5vw, 32px)';

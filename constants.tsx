@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Difficulty, GameMode, UnifiedGrid, Achievement, BridgesLine, BridgesIsland, UserStats, GameSpecificStats, LevelStats, KakuroGrid, SudokuGrid, NonogramGrid, NonogramClues, SkyscrapersGrid, TakuzuGrid, AkariGrid, FutoshikiGrid, TentsGrid, TentsClues, ShikakuClue, ShikakuRect, HitoriGrid, NurikabeGrid } from './types';
 
@@ -629,7 +630,7 @@ export const GameLogic = {
 
   NONOGRAM: {
     generate: (diff: Difficulty) => {
-        const size = diff === 'EASY' ? 5 : (diff === 'MEDIUM' ? 10 : 15);
+        const size = diff === 'EASY' ? 6 : (diff === 'MEDIUM' ? 8 : 10);
         const solution = Array.from({length:size}, ()=>Array.from({length:size}, ()=>Math.random()>0.5?1:0));
         const grid = createGrid(size, size);
         const rows = solution.map(row => { const res = []; let c=0; for(let x of row) { if(x) c++; else if(c) { res.push(c); c=0; } } if(c) res.push(c); return res.length ? res : [0]; });
@@ -649,7 +650,14 @@ export const GameLogic = {
         for(let i=0; i<n; i++) {
             const col = solution.map(r => r[i]); const row = solution[i];
             const clues = [{r: 0, c: i+1, val: countVis(col)}, {r: n+1, c: i+1, val: countVis([...col].reverse())}, {r: i+1, c: 0, val: countVis(row)}, {r: i+1, c: n+1, val: countVis([...row].reverse())}];
-            clues.forEach(clue => { if (Math.random() <= clueDensity) { grid[clue.r][clue.c] = { r: clue.r, c: clue.c, value: clue.val, type: 'CLUE', state: 'CLUE' }; } else { grid[clue.r][clue.c] = { r: clue.r, c: clue.c, value: 0, type: 'CLUE', state: 'CLUE' }; } });
+            clues.forEach(clue => { 
+                if (Math.random() <= clueDensity) { 
+                    grid[clue.r][clue.c] = { r: clue.r, c: clue.c, value: clue.val, type: 'CLUE', state: 'CLUE' }; 
+                } else { 
+                    // Use null for hidden clues instead of 0
+                    grid[clue.r][clue.c] = { r: clue.r, c: clue.c, value: null, type: 'CLUE', state: 'CLUE' }; 
+                } 
+            });
         }
         for(let r=1; r<=n; r++) for(let c=1; c<=n; c++) grid[r][c] = { r, c, value: 0, state: 'EMPTY', type: 'NORMAL' };
         return { grid, solution };

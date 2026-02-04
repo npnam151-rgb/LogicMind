@@ -1,5 +1,5 @@
 {
   "name": "LogicMind",
-  "description": "A modern, mobile-first logic puzzle game featuring Sudoku and Kakuro with intelligent AI reasoning hints using Gemini.",
+  "description": "A modern, mobile-first logic puzzle game featuring Sudoku, Kakuro, and many more.",
   "requestFramePermissions": []
 }

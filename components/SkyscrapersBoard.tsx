@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { SkyscrapersGrid, SkyscrapersClues } from '../types';
 
@@ -42,7 +43,7 @@ const SkyscrapersBoard: React.FC<Props> = ({ grid, clues, selectedCell, onCellCl
         className={`flex items-center justify-center font-bold text-slate-400 select-none ${isCorner ? 'opacity-0' : ''}`}
         style={{ fontSize: '14px' }}
       >
-        {content}
+        {content && content !== 0 ? content : ''}
       </div>
     );
   };

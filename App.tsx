@@ -451,6 +451,11 @@ const App: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Attempt to lock orientation (works mostly on Android/Chrome or Fullscreen PWA)
+    if (screen.orientation && 'lock' in screen.orientation) {
+        (screen.orientation as any).lock('portrait').catch(() => {});
+    }
+
     const savedStats = localStorage.getItem('logicmind_stats');
     if (savedStats) {
         try { 
