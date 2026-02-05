@@ -36,20 +36,43 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
 
   const cellSize = 'min(9vw, 36px)';
   
-  // Mobile-friendly drag start logic using DOM element detection
+  // Helper to calculate cell coordinates mathematically instead of relying on DOM hit-testing.
+  // This is much more robust on iOS Safari.
+  const getCellFromPoint = (clientX: number, clientY: number) => {
+      if (!boardRef.current) return null;
+      const rect = boardRef.current.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      // Check if interaction is outside the board bounds
+      if (x < 0 || x > rect.width || y < 0 || y > rect.height) return null;
+
+      // Calculate approximate column/row width based on current container size
+      const colWidth = rect.width / size;
+      const rowHeight = rect.height / size;
+
+      const c = Math.floor(x / colWidth);
+      const r = Math.floor(y / rowHeight);
+
+      // Clamp values to ensure they stay within grid limits
+      const safeC = Math.max(0, Math.min(size - 1, c));
+      const safeR = Math.max(0, Math.min(size - 1, r));
+
+      return { r: safeR, c: safeC };
+  };
+
   const handlePointerDown = (e: React.PointerEvent) => {
     e.preventDefault(); 
     
-    // Find the cell under the pointer/finger
-    const element = document.elementFromPoint(e.clientX, e.clientY);
-    const cellElement = element?.closest('[data-shikaku-cell="true"]');
-    
-    if (!cellElement) return;
+    // Capture pointer immediately to handle dragging outside the initial cell
+    if (boardRef.current) {
+        boardRef.current.setPointerCapture(e.pointerId);
+    }
 
-    const r = parseInt(cellElement.getAttribute('data-r') || '-1');
-    const c = parseInt(cellElement.getAttribute('data-c') || '-1');
+    const cell = getCellFromPoint(e.clientX, e.clientY);
+    if (!cell) return;
 
-    if (r === -1 || c === -1) return;
+    const { r, c } = cell;
 
     // Check if clicking an existing rect to remove it
     const clickedRect = rects.find(rect => 
@@ -63,39 +86,34 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
 
     setDragStart({ r, c });
     setCurrentDrag({ r, c });
-
-    // Important for touch: Capture pointer to the board container so we keep receiving events
-    // even if the finger moves slightly outside initially
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragStart) return;
+    // e.preventDefault() is crucial on iOS to prevent scrolling while dragging
+    e.preventDefault();
 
     // Optimization: Use requestAnimationFrame to prevent lag
     if (rafRef.current) return;
     
     rafRef.current = requestAnimationFrame(() => {
-        // Look up element under cursor (works for both touch and mouse)
-        const element = document.elementFromPoint(e.clientX, e.clientY);
-        const cellElement = element?.closest('[data-shikaku-cell="true"]');
-
-        if (cellElement) {
-            const r = parseInt(cellElement.getAttribute('data-r') || '-1');
-            const c = parseInt(cellElement.getAttribute('data-c') || '-1');
-            
-            if (r !== -1 && c !== -1) {
-                setCurrentDrag({ r, c });
-            }
+        const cell = getCellFromPoint(e.clientX, e.clientY);
+        if (cell) {
+            setCurrentDrag(cell);
         }
         rafRef.current = null;
     });
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    e.preventDefault();
     if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
+    }
+
+    if (boardRef.current) {
+        boardRef.current.releasePointerCapture(e.pointerId);
     }
 
     if (dragStart && currentDrag) {
@@ -121,7 +139,6 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
     
     setDragStart(null);
     setCurrentDrag(null);
-    (e.currentTarget as Element).releasePointerCapture(e.pointerId);
   };
 
   const renderDragPreview = () => {
@@ -190,12 +207,14 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        // Ensure touch-action is strictly none to prevent scrolling on iOS
         className="relative bg-slate-800 border-2 border-slate-600 shadow-soft touch-none"
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${size}, ${cellSize})`,
           gridTemplateRows: `repeat(${size}, ${cellSize})`,
           gap: '1px',
+          touchAction: 'none'
         }}
       >
         {Array.from({ length: size * size }).map((_, i) => {
@@ -206,13 +225,10 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
             return (
                 <div
                     key={i}
-                    data-shikaku-cell="true"
-                    data-r={r}
-                    data-c={c}
-                    className="bg-slate-700 flex items-center justify-center cursor-pointer"
+                    className="bg-slate-700 flex items-center justify-center pointer-events-none"
                     style={{ width: '100%', height: '100%' }}
                 >
-                    {clue && <span className="font-bold text-white text-lg pointer-events-none relative z-10 drop-shadow-sm">{clue.value}</span>}
+                    {clue && <span className="font-bold text-white text-lg relative z-10 drop-shadow-sm">{clue.value}</span>}
                 </div>
             );
         })}
