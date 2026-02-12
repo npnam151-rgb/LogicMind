@@ -34,7 +34,20 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
   const boardRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
 
-  const cellSize = 'min(9vw, 36px)';
+  // Dynamic sizing logic to fill the screen better on all difficulties
+  let cellSize = 'min(9vw, 36px)';
+  let fontSize = '18px';
+
+  if (size <= 5) { // Easy
+      cellSize = 'min(17vw, 65px)';
+      fontSize = '28px';
+  } else if (size <= 8) { // Medium
+      cellSize = 'min(11vw, 46px)';
+      fontSize = '22px';
+  } else { // Hard (10+)
+      cellSize = 'min(8.8vw, 38px)';
+      fontSize = '16px';
+  }
   
   // Helper to calculate cell coordinates mathematically instead of relying on DOM hit-testing.
   // This is much more robust on iOS Safari.
@@ -190,7 +203,7 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
                 height: `calc(${h} * (${cellSize} + 1px) - 1px)`,
             }}
           >
-             <span className="text-white font-bold text-lg drop-shadow-md bg-black/40 rounded-full px-2 py-0.5 backdrop-blur-sm">
+             <span className="text-white font-bold drop-shadow-md bg-black/40 rounded-full px-2 py-0.5 backdrop-blur-sm" style={{ fontSize: fontSize }}>
                 {area}
              </span>
           </div>
@@ -228,7 +241,7 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
                     className="bg-slate-700 flex items-center justify-center pointer-events-none"
                     style={{ width: '100%', height: '100%' }}
                 >
-                    {clue && <span className="font-bold text-white text-lg relative z-10 drop-shadow-sm">{clue.value}</span>}
+                    {clue && <span className="font-bold text-white relative z-10 drop-shadow-sm" style={{ fontSize: fontSize }}>{clue.value}</span>}
                 </div>
             );
         })}
