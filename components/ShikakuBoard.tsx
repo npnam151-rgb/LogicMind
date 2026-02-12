@@ -34,20 +34,10 @@ const ShikakuBoard: React.FC<Props> = ({ size, clues, rects, onAddRect, onRemove
   const boardRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
 
-  // Dynamic sizing logic to fill the screen better on all difficulties
-  let cellSize = 'min(9vw, 36px)';
-  let fontSize = '18px';
-
-  if (size <= 5) { // Easy
-      cellSize = 'min(17vw, 65px)';
-      fontSize = '28px';
-  } else if (size <= 8) { // Medium
-      cellSize = 'min(11vw, 46px)';
-      fontSize = '22px';
-  } else { // Hard (10+)
-      cellSize = 'min(8.8vw, 38px)';
-      fontSize = '16px';
-  }
+  // Sizing logic matched to AkariBoard
+  const isLarge = size >= 10;
+  const cellSize = isLarge ? 'min(8.5vw, 32px)' : 'min(12vw, 45px)';
+  const fontSize = isLarge ? '16px' : '20px';
   
   // Helper to calculate cell coordinates mathematically instead of relying on DOM hit-testing.
   // This is much more robust on iOS Safari.
