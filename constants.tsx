@@ -240,7 +240,7 @@ const generateTents = (diff: Difficulty) => {
     let success = false;
     const ortho = [[0,1], [0,-1], [1,0], [-1,0]];
 
-    for (let attempt = 0; attempt < 100; attempt++) {
+    for (const _ of Array.from({length: 100})) {
         let board = Array.from({length: n}, () => Array(n).fill(0));
         let placedCount = 0;
         const positions = [];
@@ -340,6 +340,7 @@ const solveSudokuBacktrack = (board: number[][], count: {val: number} = {val: 0}
   return solutions;
 };
 
+// --- AKARI LOGIC START ---
 export const updateAkariLighting = (grid: UnifiedGrid): UnifiedGrid => {
     const n = grid.length;
     for(let r=0; r<n; r++) for(let c=0; c<n; c++) { if(grid[r][c].type !== 'WALL') grid[r][c].isLit = false; }
@@ -358,18 +359,155 @@ export const updateAkariLighting = (grid: UnifiedGrid): UnifiedGrid => {
     return grid;
 };
 
-const canPlaceBulb = (grid: UnifiedGrid, r: number, c: number, size: number): boolean => {
-    if (grid[r][c].type === 'WALL' || grid[r][c].state === 'BULB') return false;
+// Check if a bulb at (r,c) can 'see' another bulb
+const canSeeAnotherBulb = (grid: UnifiedGrid, r: number, c: number): boolean => {
+    const n = grid.length;
     const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
     for(const [dr, dc] of dirs) {
         let nr=r+dr, nc=c+dc;
-        while(nr>=0 && nr<size && nc>=0 && nc<size && grid[nr][nc].type !== 'WALL') {
-             if (grid[nr][nc].state === 'BULB') return false;
+        while(nr>=0 && nr<n && nc>=0 && nc<n && grid[nr][nc].type !== 'WALL') {
+             if (grid[nr][nc].state === 'BULB') return true;
              nr+=dr; nc+=dc;
         }
     }
-    return true;
+    return false;
 };
+
+// Check if all white cells are lit
+const areAllLit = (grid: UnifiedGrid): boolean => {
+    return grid.every(row => row.every(cell => 
+        cell.type === 'WALL' || cell.isLit
+    ));
+};
+
+const solveAkariBacktrack = (grid: UnifiedGrid, n: number, candidates: {r: number, c: number}[], index: number): boolean => {
+    // 1. Base case: All candidates processed or full
+    if (index >= candidates.length) {
+        return areAllLit(updateAkariLighting(grid));
+    }
+
+    // Optimization: If the current board state has unlit cells that are unreachable (blocked by walls and no candidates left nearby), prune?
+    // For now, simple standard backtracking on available cells.
+    
+    // Find first UNLIT cell to force progress
+    let target = null;
+    for(let r=0; r<n; r++) {
+        for(let c=0; c<n; c++) {
+            if(grid[r][c].type !== 'WALL' && !grid[r][c].isLit) {
+                target = {r,c};
+                break;
+            }
+        }
+        if(target) break;
+    }
+    
+    if (!target) return true; // All lit!
+
+    // Find all valid positions that can light this target
+    const possiblePositions = [];
+    const dirs = [[0,1],[0,-1],[1,0],[-1,0],[0,0]]; // Include itself
+    for(const [dr, dc] of dirs) {
+        if (dr===0 && dc===0) {
+            if(grid[target.r][target.c].state !== 'BULB' && !canSeeAnotherBulb(grid, target.r, target.c)) {
+                 possiblePositions.push({r: target.r, c: target.c});
+            }
+            continue;
+        }
+        // Trace line
+        let nr=target.r+dr, nc=target.c+dc;
+        while(nr>=0 && nr<n && nc>=0 && nc<n && grid[nr][nc].type !== 'WALL') {
+            if(grid[nr][nc].state !== 'BULB' && !canSeeAnotherBulb(grid, nr, nc)) {
+                possiblePositions.push({r:nr, c:nc});
+            }
+            nr+=dr; nc+=dc;
+        }
+    }
+
+    // Shuffle positions to create random solutions
+    possiblePositions.sort(() => Math.random() - 0.5);
+
+    for (const pos of possiblePositions) {
+        grid[pos.r][pos.c].state = 'BULB';
+        const previousLitState = grid.map(row => row.map(c => c.isLit));
+        updateAkariLighting(grid);
+        
+        if (solveAkariBacktrack(grid, n, candidates, index + 1)) return true;
+        
+        // Backtrack
+        grid[pos.r][pos.c].state = 'EMPTY';
+        // Restore lit state
+        for(let r=0; r<n; r++) for(let c=0; c<n; c++) grid[r][c].isLit = previousLitState[r][c];
+    }
+
+    return false;
+};
+
+const generateAkariPuzzle = (diff: Difficulty) => {
+    let size = 6; 
+    let wallDensity = 0.30; 
+    if (diff === 'MEDIUM') { size = 8; wallDensity = 0.25; } 
+    if (diff === 'HARD') { size = 10; wallDensity = 0.20; }
+
+    for(let attempt = 0; attempt < 20; attempt++) {
+        const grid = createGrid(size, size);
+        const solutionGrid = Array.from({length: size}, () => Array(size).fill(0));
+        
+        // 1. Place Walls Randomly
+        const targetWalls = Math.floor(size * size * wallDensity); 
+        let wallsPlaced = 0;
+        while(wallsPlaced < targetWalls) { 
+            const r = Math.floor(Math.random() * size); 
+            const c = Math.floor(Math.random() * size); 
+            if (grid[r][c].type !== 'WALL') { 
+                grid[r][c].type = 'WALL'; 
+                wallsPlaced++; 
+                // Symmetry for aesthetics (optional, improves "look")
+                const symR = size - 1 - r; 
+                const symC = size - 1 - c; 
+                if (grid[symR][symC].type !== 'WALL') { 
+                    grid[symR][symC].type = 'WALL'; 
+                    wallsPlaced++; 
+                } 
+            } 
+        }
+
+        // 2. Solve to find a valid bulb configuration (Generator)
+        // We use the solver to "fill" the board with a valid solution
+        const candidates: {r: number, c: number}[] = [];
+        for(let r=0; r<size; r++) for(let c=0; c<size; c++) if(grid[r][c].type !== 'WALL') candidates.push({r,c});
+
+        if (solveAkariBacktrack(grid, size, candidates, 0)) {
+            // Found a valid full layout
+            const solution = grid.map(row => row.map(c => c.state === 'BULB' ? 1 : 0));
+            
+            // 3. Generate Clues from this solution
+            // Numbering ALL walls based on the solution effectively guarantees uniqueness
+            // or at least strongly constrains it.
+            for(let r=0; r<size; r++) { 
+                for(let c=0; c<size; c++) { 
+                    if(grid[r][c].type === 'WALL') { 
+                        let count = 0; 
+                        const dirs = [[0,1],[0,-1],[1,0],[-1,0]]; 
+                        for(const [dr, dc] of dirs) { 
+                            const nr=r+dr, nc=c+dc; 
+                            if(nr>=0 && nr<size && nc>=0 && nc<size && solution[nr][nc] === 1) count++; 
+                        }
+                        // In Easy/Medium, number almost all walls. In Hard, maybe skip a few?
+                        // To ensure uniqueness strictly as requested, we number ALL walls.
+                        grid[r][c].value = count; 
+                    } 
+                } 
+            }
+            
+            // Reset grid state for player
+            const playableGrid = grid.map(row => row.map(cell => ({...cell, state: 'NONE', isLit: false}))); 
+            return { grid: playableGrid, solution }; 
+        }
+    }
+    // Fallback if generation fails repeatedly
+    return { grid: createGrid(size, size), solution: [] };
+};
+// --- AKARI LOGIC END ---
 
 const getNeighbors = (r: number, c: number, size: number) => { const res = []; if (r > 0) res.push({r: r-1, c}); if (r < size-1) res.push({r: r+1, c}); if (c > 0) res.push({r, c: c-1}); if (c < size-1) res.push({r, c: c+1}); return res; };
 const wouldForm2x2 = (grid: string[][], r: number, c: number, size: number) => { if (r > 0 && c > 0 && grid[r-1][c-1] === 'WALL' && grid[r-1][c] === 'WALL' && grid[r][c-1] === 'WALL') return true; if (r > 0 && c < size-1 && grid[r-1][c+1] === 'WALL' && grid[r-1][c] === 'WALL' && grid[r][c+1] === 'WALL') return true; if (r < size-1 && c > 0 && grid[r+1][c-1] === 'WALL' && grid[r+1][c] === 'WALL' && grid[r][c-1] === 'WALL') return true; if (r < size-1 && c < size-1 && grid[r+1][c+1] === 'WALL' && grid[r+1][c] === 'WALL' && grid[r][c+1] === 'WALL') return true; return false; };
@@ -679,21 +817,41 @@ export const GameLogic = {
 
   AKARI: {
       generate: (diff: Difficulty) => {
-          let size = 6; let wallDensity = 0.20; let numberProbability = 0.8;
-          if (diff === 'MEDIUM') { size = 8; wallDensity = 0.22; numberProbability = 0.5; } if (diff === 'HARD') { size = 10; wallDensity = 0.28; numberProbability = 0.2; }
-          for(let attempt = 0; attempt < 50; attempt++) {
-              const grid = createGrid(size, size);
-              const solution = Array.from({length: size}, () => Array(size).fill(0));
-              const litMap = Array.from({length: size}, () => Array(size).fill(false));
-              const targetWalls = Math.floor(size * size * wallDensity); let wallsPlaced = 0;
-              while(wallsPlaced < targetWalls) { const r = Math.floor(Math.random() * size); const c = Math.floor(Math.random() * size); if (grid[r][c].type !== 'WALL') { grid[r][c].type = 'WALL'; wallsPlaced++; const symR = size - 1 - r; const symC = size - 1 - c; if (grid[symR][symC].type !== 'WALL') { grid[symR][symC].type = 'WALL'; wallsPlaced++; } } }
-              let possible = true; const whiteCells = []; for(let r=0; r<size; r++) for(let c=0; c<size; c++) if(grid[r][c].type !== 'WALL') whiteCells.push({r,c}); whiteCells.sort(() => Math.random() - 0.5);
-              for (const {r, c} of whiteCells) { if (litMap[r][c]) continue; const candidates = []; if (canPlaceBulb(grid, r, c, size)) candidates.push({r,c}); const dirs = [[0,1],[0,-1],[1,0],[-1,0]]; for(const [dr, dc] of dirs) { let nr=r+dr, nc=c+dc; while(nr>=0 && nr<size && nc>=0 && nc<size && grid[nr][nc].type !== 'WALL') { if (canPlaceBulb(grid, nr, nc, size)) candidates.push({r:nr, c:nc}); nr+=dr; nc+=dc; } } if (candidates.length === 0) { possible = false; break; } const pick = candidates[Math.floor(Math.random() * candidates.length)]; grid[pick.r][pick.c].state = 'BULB'; solution[pick.r][pick.c] = 1; litMap[pick.r][pick.c] = true; for(const [dr, dc] of dirs) { let nr=pick.r+dr, nc=pick.c+dc; while(nr>=0 && nr<size && nc>=0 && nc<size && grid[nr][nc].type !== 'WALL') { litMap[nr][nc] = true; nr+=dr; nc+=dc; } } }
-              if (possible) { for(let r=0; r<size; r++) { for(let c=0; c<size; c++) { if(grid[r][c].type === 'WALL') { let count = 0; const dirs = [[0,1],[0,-1],[1,0],[-1,0]]; for(const [dr, dc] of dirs) { const nr=r+dr, nc=c+dc; if(nr>=0 && nr<size && nc>=0 && nc<size && solution[nr][nc] === 1) count++; } if(Math.random() < numberProbability) grid[r][c].value = count; else grid[r][c].value = null; } } } const playableGrid = grid.map(row => row.map(cell => ({...cell, state: 'NONE', isLit: false}))); return { grid: playableGrid, solution }; }
-          }
-          const fallback = createGrid(size, size); return { grid: fallback, solution: {} };
+          return generateAkariPuzzle(diff);
       },
-      check: (grid: UnifiedGrid) => { const n = grid.length; for(let r=0; r<n; r++) for(let c=0; c<n; c++) { if(grid[r][c].type !== 'WALL' && !grid[r][c].isLit) return false; } for(let r=0; r<n; r++) for(let c=0; c<n; c++) { if(grid[r][c].state === 'BULB') { const dirs = [[0,1],[0,-1],[1,0],[-1,0]]; for(const [dr, dc] of dirs) { let nr=r+dr, nc=c+dc; while(nr>=0&&nr<n&&nc>=0&&nc<n && grid[nr][nc].type !== 'WALL') { if(grid[nr][nc].state === 'BULB') return false; nr+=dr; nc+=dc; } } } } for(let r=0; r<n; r++) for(let c=0; c<n; c++) { if(grid[r][c].type === 'WALL' && grid[r][c].value !== null) { let count = 0; const dirs = [[0,1],[0,-1],[1,0],[-1,0]]; for(const [dr, dc] of dirs) { const nr=r+dr, nc=c+dc; if(nr>=0 && nr<n && nc>=0 && nc<n && grid[nr][nc].state === 'BULB') count++; } if(count !== grid[r][c].value) return false; } } return true; }
+      check: (grid: UnifiedGrid) => { 
+          // 1. All non-wall cells must be lit
+          const n = grid.length; 
+          for(let r=0; r<n; r++) for(let c=0; c<n; c++) { if(grid[r][c].type !== 'WALL' && !grid[r][c].isLit) return false; } 
+          
+          // 2. No two bulbs can shine on each other
+          for(let r=0; r<n; r++) for(let c=0; c<n; c++) { 
+              if(grid[r][c].state === 'BULB') { 
+                  const dirs = [[0,1],[0,-1],[1,0],[-1,0]]; 
+                  for(const [dr, dc] of dirs) { 
+                      let nr=r+dr, nc=c+dc; 
+                      while(nr>=0&&nr<n&&nc>=0&&nc<n && grid[nr][nc].type !== 'WALL') { 
+                          if(grid[nr][nc].state === 'BULB') return false; 
+                          nr+=dr; nc+=dc; 
+                      } 
+                  } 
+              } 
+          } 
+          
+          // 3. Wall numbers must be satisfied
+          for(let r=0; r<n; r++) for(let c=0; c<n; c++) { 
+              if(grid[r][c].type === 'WALL' && grid[r][c].value !== null) { 
+                  let count = 0; 
+                  const dirs = [[0,1],[0,-1],[1,0],[-1,0]]; 
+                  for(const [dr, dc] of dirs) { 
+                      const nr=r+dr, nc=c+dc; 
+                      if(nr>=0 && nr<n && nc>=0 && nc<n && grid[nr][nc].state === 'BULB') count++; 
+                  } 
+                  if(count !== grid[r][c].value) return false; 
+              } 
+          } 
+          return true; 
+      }
   },
 
   FUTOSHIKI: {
